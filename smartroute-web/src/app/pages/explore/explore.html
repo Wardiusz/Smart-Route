@@ -1,0 +1,222 @@
+<div class="layout">
+  <aside class="panel">
+    <header class="brand">
+      <app-logo [size]="44" />
+      <span class="tag">ODKRYWAJ</span>
+    </header>
+
+    <div class="tailored" title="Rekomendacje uwzględniają Twój profil oraz wcześniejsze wybory trasy.">
+      <app-icon name="sparkles" [size]="15" />
+      <span>{{ hasHistory() ? 'Dopasowane do Twoich podróży' : 'Dopasowane do Twoich preferencji' }}</span>
+      <app-icon name="info" [size]="15" class="i" />
+    </div>
+
+    <div class="scroll">
+      <section class="form">
+        <h2 class="eyebrow">TWOJA NASTĘPNA PRZYGODA</h2>
+
+        @if (metaError()) {
+          <div class="alert" role="alert">
+            <app-icon name="wifi-off" [size]="16" />
+            <span>{{ metaError() }} <a href="#" (click)="$event.preventDefault(); reloadMeta()">Spróbuj ponownie</a></span>
+          </div>
+        } @else if (!meta()) {
+          <div class="skeleton sk-field"></div>
+          <div class="skeleton sk-field"></div>
+          <div class="skeleton sk-btn"></div>
+        } @else {
+          <div class="fields">
+            <div class="stack">
+              <app-place-field label="Punkt startowy (A)" kind="start" [(value)]="origin" />
+              <span class="link" aria-hidden="true"></span>
+              <app-place-field label="Cel podróży (B)" kind="end" [(value)]="destination" />
+            </div>
+            <button type="button" class="swap" (click)="swap()" aria-label="Zamień punkty A i B" title="Zamień A i B">
+              <app-icon name="swap" [size]="18" />
+            </button>
+          </div>
+          @if (sameCity()) { <p class="field-error">Start i cel muszą być różnymi miejscowościami.</p> }
+          @if (!meta()!.poiCatalogReady) {
+            <div class="notice"><app-icon name="info" [size]="15" />
+              <span>Trwa pobieranie katalogu atrakcji ({{ meta()!.poiCount }} miejsc) – propozycje mogą być na razie uboższe.</span></div>
+          }
+
+          <button class="btn btn-primary btn-block find" type="button" [disabled]="!canSearch()" (click)="search()">
+            @if (phase() === 'loading') { <span class="spinner"></span> Szukam tras… } @else { Znajdź trasy <app-icon name="arrow-right" [size]="18" /> }
+          </button>
+        }
+      </section>
+
+      @switch (phase()) {
+        @case ('loading') {
+          <section class="results" aria-live="polite">
+            <div class="head"><div><h2>Szukam najlepszych dróg…</h2><p class="muted loading-step">{{ loadingStep() }}</p></div></div>
+            <div class="skeleton sk-card"></div>
+            <div class="skeleton sk-card tall"></div>
+          </section>
+        }
+        @case ('error') {
+          <section class="results">
+            <div class="alert" role="alert"><app-icon name="alert" [size]="16" /><span>{{ error() }}</span></div>
+            <button class="btn btn-block" type="button" (click)="search()">Spróbuj ponownie</button>
+          </section>
+        }
+        @case ('done') {
+          @if (trip(); as t) {
+            <section class="results">
+              <div class="head">
+                <div>
+                  <h2>{{ alt() ? 'Dwie drogi do celu' : 'Jedna droga do celu' }}</h2>
+                  <p class="muted">Stworzone pod Twój styl podróży.</p>
+                </div>
+                <span class="count">{{ routeCount() }} {{ routeCount() === 2 ? 'trasy' : 'trasa' }}</span>
+              </div>
+
+              @if (t.fallbackReason) {
+                <div class="notice"><app-icon name="info" [size]="15" /><span>Wystąpił błąd – {{ t.fallbackReason }}</span></div>
+              }
+
+              <article class="card std" [class.sel]="selected() === 'DIRECT'" (click)="selected.set('DIRECT')" tabindex="0"
+                       (keydown.enter)="selected.set('DIRECT')" role="radio" [attr.aria-checked]="selected() === 'DIRECT'">
+                <div class="row">
+                  <span class="radio" [class.on]="selected() === 'DIRECT'"></span>
+                  <strong>Trasa standardowa</strong>
+                  @if (decided() === 'DIRECT') { <span class="picked"><app-icon name="check" [size]="13" /> Wybrana</span> }
+                </div>
+                <p class="muted">Najszybszy dojazd</p>
+                <div class="metrics">
+                  <span class="time">{{ fmt(t.direct.totalMinutes) }}</span>
+                  <span class="km">{{ km(t.direct.distanceKm) }}</span>
+                  <button class="btn select" type="button" [disabled]="deciding()" (click)="$event.stopPropagation(); choose('DIRECT')">Wybierz</button>
+                </div>
+              </article>
+
+              @if (alt(); as a) {
+                <article class="card smart" [class.sel]="selected() === 'ALTERNATIVE'" (click)="selected.set('ALTERNATIVE')" tabindex="0"
+                         (keydown.enter)="selected.set('ALTERNATIVE')" role="radio" [attr.aria-checked]="selected() === 'ALTERNATIVE'">
+                  <span class="reco"><app-icon name="sparkles" [size]="13" /> POLECANA</span>
+                  <span class="chk" [class.on]="selected() === 'ALTERNATIVE'">@if (selected() === 'ALTERNATIVE') { <app-icon name="check" [size]="14" [stroke]="3" /> }</span>
+                  <strong class="title">Inteligentna alternatywa</strong>
+                  <p class="muted">{{ a.title }}</p>
+                  <div class="metrics">
+                    <span class="time">{{ fmt(a.route.totalMinutes) }}</span>
+                    <span class="delta">{{ a.extraMinutes >= 0 ? '+' : '' }}{{ a.extraMinutes }} min</span>
+                    <span class="km">{{ km(a.route.distanceKm) }}</span>
+                  </div>
+                  <p class="visit muted">w tym {{ fmt(a.route.visitMinutes) }} zwiedzania</p>
+
+                  <div class="why">
+                    <div class="why-h"><app-icon name="sparkles" [size]="14" /> Dlaczego ta trasa?</div>
+                    <p>{{ a.rationale }}</p>
+                    <small class="src">Źródło: {{ t.advisor }}</small>
+                  </div>
+
+                  <ol class="stops">
+                    @for (s of a.stops; track s.poiId; let i = $index) {
+                      <li [class.open]="openStop() === s.poiId">
+                        <button type="button" class="stop-row" (click)="$event.stopPropagation(); toggleStop(s)"
+                                [attr.aria-expanded]="openStop() === s.poiId" title="Pokaż podgląd miejsca">
+                          @if (imageOf(s); as img) {
+                            <img class="thumb" [src]="img" [alt]="s.name" loading="lazy" referrerpolicy="no-referrer" (error)="imageFailed(s)" />
+                          } @else {
+                            <span class="ico"><app-icon [name]="icons[s.category]" [size]="16" /></span>
+                          }
+                          <span class="nm"><b>{{ s.name }}</b><small>{{ s.categoryLabel }} · {{ s.visitMinutes }} min</small></span>
+                          <span class="n">{{ pad(i) }}</span>
+                        </button>
+                        @if (openStop() === s.poiId) {
+                          <div class="preview" (click)="$event.stopPropagation()">
+                            @if (imageOf(s); as img) {
+                              <img [src]="img" [alt]="s.name" referrerpolicy="no-referrer" (error)="imageFailed(s)" />
+                            }
+                            @if (s.description) { <p class="desc">{{ s.description }}</p> }
+                            @if (s.note) { <p class="note"><app-icon name="sparkles" [size]="13" /> {{ s.note }}</p> }
+                            @if (s.wikiUrl) { <a [href]="s.wikiUrl" target="_blank" rel="noopener">Więcej w Wikipedii <app-icon name="arrow-right" [size]="13" /></a> }
+                          </div>
+                        }
+                      </li>
+                    }
+                  </ol>
+
+                  <button class="btn btn-primary btn-block" type="button" [disabled]="deciding()" (click)="$event.stopPropagation(); choose('ALTERNATIVE')">
+                    @if (deciding() && selected() === 'ALTERNATIVE') { <span class="spinner"></span> }
+                    @else if (decided() === 'ALTERNATIVE') { <app-icon name="check" [size]="18" /> Trasa wybrana }
+                    @else { Wybierz tę trasę <app-icon name="arrow-right" [size]="18" /> }
+                  </button>
+                </article>
+              } @else {
+                <div class="card empty">
+                  <app-icon name="sparkles" [size]="18" />
+                  <div>
+                    <strong>Brak ciekawej alternatywy</strong>
+                    <p class="muted">{{ t.message || 'Na tej trasie nie znaleźliśmy przystanków pasujących do Twoich preferencji.' }}</p>
+                    <a routerLink="/settings">Zmień preferencje</a>
+                  </div>
+                </div>
+              }
+
+              <p class="foot"><app-icon name="clock" [size]="14" /> Trochę dłużej. Dużo bardziej niezapomniana.</p>
+            </section>
+          }
+        }
+        @default {
+          @if (meta()) {
+            <section class="results idle">
+              <app-icon name="route" [size]="26" />
+              <p>Wybierz start i cel, a my zaproponujemy szybką trasę oraz ciekawszą alternatywę z przystankami.</p>
+            </section>
+          }
+        }
+      }
+    </div>
+  </aside>
+
+  <main class="stage">
+    <app-map-view [origin]="origin()" [destination]="destination()" [trip]="trip()" [geometry]="tripGeometry()" [selected]="selected()"
+                  [showLabels]="showLabels()" [showDirect]="showDirect()" [leftInset]="leftInset()" [bottomInset]="bottomInset()"
+                  (locateFailed)="onLocateFailed($event)" />
+
+    <div class="top-chip glass">
+      <app-icon name="route" [size]="16" class="acc" />
+      <b>{{ origin()?.name ?? '—' }}</b><app-icon name="arrow-right" [size]="14" /><b>{{ destination()?.name ?? '—' }}</b>
+      <span class="muted">Polska</span>
+    </div>
+
+    <div class="top-right">
+      <a class="sq glass" routerLink="/history" title="Historia podróży" aria-label="Historia podróży"><app-icon name="bookmark" [size]="18" /></a>
+      <div class="rel">
+        <button class="sq glass" type="button" (click)="layersOpen.set(!layersOpen())" title="Warstwy mapy" aria-label="Warstwy mapy" [attr.aria-expanded]="layersOpen()">
+          <app-icon name="layers" [size]="18" />
+        </button>
+        @if (layersOpen()) {
+          <div class="layers glass">
+            <label><input type="checkbox" [checked]="showLabels()" (change)="showLabels.set(!showLabels())" /> Etykiety miejsc</label>
+            <label><input type="checkbox" [checked]="showDirect()" (change)="showDirect.set(!showDirect())" /> Trasa standardowa</label>
+          </div>
+        }
+      </div>
+      <app-user-menu />
+    </div>
+
+    <div class="legend glass">
+      <div><i class="l-alt"></i> Inteligentna alternatywa</div>
+      <div><i class="l-dir"></i> Trasa standardowa</div>
+    </div>
+
+    @if (alt(); as a) {
+      <div class="hint glass">
+        <span class="hico"><app-icon name="mountain" [size]="20" /></span>
+        <div><b>Mniej pośpiechu. Więcej odkryć.</b><small>{{ a.stops.length }} {{ a.stops.length === 1 ? 'wybrany przystanek' : 'wybrane przystanki' }} na Twojej trasie</small></div>
+      </div>
+    }
+
+    <div class="ctrl">
+      <button class="sq glass" type="button" (click)="recenter()" title="Pokaż całą trasę" aria-label="Pokaż całą trasę"><app-icon name="navigation" [size]="17" /></button>
+      <div class="zoom glass">
+        <button type="button" (click)="zoomIn()" aria-label="Przybliż"><app-icon name="plus" [size]="18" /></button>
+        <button type="button" (click)="zoomOut()" aria-label="Oddal"><app-icon name="minus" [size]="18" /></button>
+      </div>
+      <button class="sq glass" type="button" (click)="locate()" title="Moja lokalizacja" aria-label="Moja lokalizacja"><app-icon name="locate" [size]="18" /></button>
+    </div>
+  </main>
+</div>

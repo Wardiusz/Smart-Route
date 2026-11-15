@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pl" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <title>SmartRoute – ciekawsza droga z A do B</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    (function () {
+      try {
+        var s = localStorage.getItem('sr.theme') || 'system';
+        var t = s === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : s;
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    html[data-theme=dark]{background:#08111f}html[data-theme=light]{background:#eef3f8}
+    body{margin:0}
+  </style>
+</head>
+<body>
+  <app-root></app-root>
+</body>
+</html>
