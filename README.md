@@ -1,7 +1,7 @@
 # Smart-Route
 
-<video width="640" height="360" controls>
-  <source src="public/demo.mp4" type="video/mp4">
+<video width="100%" height="360" controls>
+  <source src="https://wardiusz.github.io/Smart-Route/public/demo.mp4" muted="muted" autoplay="autoplay" loop="loop">
 </video>
 
 ## Opis aplikacji
