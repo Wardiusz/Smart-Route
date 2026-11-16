@@ -1,5 +1,9 @@
 # Smart-Route
 
+<video width="640" height="360" controls>
+  <source src="public/demo.mp4" type="video/mp4">
+</video>
+
 ## Opis aplikacji
 
 SmartRoute to aplikacja webowa, która zamiast najszybszej trasy z punktu A do B proponuje **ciekawszą alternatywę
